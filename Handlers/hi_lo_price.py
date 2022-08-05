@@ -5,7 +5,7 @@ from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from State.user_state import HotelRequest
-from Funcs import funcs
+from Funcs import rapid_api
 from Database.sqlite_db import add_row
 from config import bot
 
@@ -22,7 +22,7 @@ async def get_city(message: types.Message, state: FSMContext):
     """
     Finds and uses the first result of query. Doesn't specify the query result.
     """
-    city_name, city_id = funcs.get_city(message.text)
+    city_name, city_id = rapid_api.get_city(message.text)
     logging.info(f'User city request: {message.text}')
     logging.info(f'Found city name: {city_name} ID: {city_id}')
     if city_id is None:
@@ -158,7 +158,7 @@ async def result(message: types.Message, state: FSMContext):
     check_out = data.get('check_out')
     days = (check_out - check_in).days
 
-    hotels_found = funcs.get_city_hotels(city_id, quantity, check_in, check_out, sort_order)
+    hotels_found = rapid_api.get_city_hotels(city_id, quantity, check_in, check_out, sort_order)
 
     #   Заносим данные о поиске в базу данных
     user_id = message.from_user.id
@@ -175,7 +175,7 @@ async def result(message: types.Message, state: FSMContext):
 
     for num, hotel in enumerate(hotels_found, start=1):
         if data.get('need_photos'):
-            urls = funcs.get_photos(hotel['id'], int(message.text))
+            urls = rapid_api.get_photos(hotel['id'], int(message.text))
             await types.ChatActions.upload_photo()
             media = types.MediaGroup()
 
