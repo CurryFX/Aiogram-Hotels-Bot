@@ -11,7 +11,7 @@ from config import API_KEY
 """
 
 
-def api_query(url: str, params: Dict) -> requests.Response:
+def api_query(url: str, params: Dict) -> Optional[requests.Response]:
     """
     Is used to replace repeated GET queries in functions
     """
@@ -21,8 +21,17 @@ def api_query(url: str, params: Dict) -> requests.Response:
         "Accept": "application/json",
         "Content-Type": "application/json"
     }
+    try:
+        response = requests.get(url=url, params=params, headers=headers, allow_redirects=True, timeout=15)
+    except requests.exceptions.ReadTimeout:
+        logging.warning('API query timed out')
+        return None
 
-    return requests.get(url=url, params=params, headers=headers, allow_redirects=True, timeout=10)
+    if response.status_code not in range(100, 400):
+        logging.warning('Query failed with status code {}'.format(response.status_code))
+        return None
+
+    return response
 
 
 def get_city(query: str = 'New York') -> Tuple[Optional[str], Optional[int]]:
@@ -35,8 +44,7 @@ def get_city(query: str = 'New York') -> Tuple[Optional[str], Optional[int]]:
     querystring = {"query": query, "locale": "ru_RU", "currency": "RUB"}
 
     response = api_query(url=url, params=querystring)
-    if response.status_code not in range(100, 300):
-        logging.warning('Query failed with status code {}'.format(response.status_code))
+    if response is None:
         return None, None
 
     j_response = json.loads(response.text)
@@ -54,7 +62,7 @@ def get_city(query: str = 'New York') -> Tuple[Optional[str], Optional[int]]:
 
 
 def get_city_hotels(city_id: int, quantity: int = 10, check_in='2022-07-22', check_out='2022-07-23',
-                    sort_order='PRICE', min_price=None, max_price=None, distance=None) -> List:
+                    sort_order='PRICE', min_price=None, max_price=None, distance=None) -> Optional[List]:
     """
     Forms a query to Hotels.com API with params described below
 
@@ -73,21 +81,18 @@ def get_city_hotels(city_id: int, quantity: int = 10, check_in='2022-07-22', che
 
     url = "https://hotels4.p.rapidapi.com/properties/list"
 
-    if min_price is None:
-        querystring = {"destinationId": city_id, "pageNumber": "1", "pageSize": quantity, "checkIn": check_in,
-                       "checkOut": check_out, "adults1": "2", "sortOrder": sort_order,
-                       "locale": "ru_RU", "currency": "RUB"}
-    else:
-        querystring = {"destinationId": city_id, "pageNumber": "1", "pageSize": quantity, "checkIn": check_in,
-                       "checkOut": check_out, "adults1": "2", "sortOrder": sort_order, "locale": "ru_RU",
-                       "currency": "RUB", "priceMin": min_price, "priceMax": max_price}
+    querystring = {"destinationId": city_id, "pageNumber": "1", "pageSize": quantity, "checkIn": check_in,
+                   "checkOut": check_out, "adults1": "2", "sortOrder": sort_order,
+                   "locale": "ru_RU", "currency": "RUB"}
+
+    if min_price:
+        querystring.update(priceMin=min_price, priceMax=max_price)
 
     hotels_found = []
 
     response = api_query(url=url, params=querystring)
-    if response.status_code not in range(100, 300):
-        logging.warning('Query failed with status code {}'.format(response.status_code))
-        return hotels_found
+    if response is None:
+        return None
 
     json_response = json.loads(response.text)
 
@@ -118,8 +123,7 @@ def get_photos(hotel_id: int, quantity: int = 5) -> Optional[List]:
     querystring = {"id": hotel_id}
 
     response = api_query(url=url, params=querystring)
-    if response.status_code not in range(100, 300):
-        logging.warning('Query failed with status code {}'.format(response.status_code))
+    if response is None:
         return None
 
     try:

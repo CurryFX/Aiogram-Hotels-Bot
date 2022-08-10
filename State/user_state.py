@@ -12,6 +12,7 @@ class HotelRequest(StatesGroup):
     need_photos = State()
     photos_num = State()
     result = State()
+    print_result = State()
 
 
 class BestDeal(StatesGroup):
@@ -28,3 +29,4 @@ class BestDeal(StatesGroup):
     need_photos = State()
     photos_num = State()
     result = State()
+    print_result = State()

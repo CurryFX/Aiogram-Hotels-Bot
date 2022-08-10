@@ -156,9 +156,17 @@ async def result(message: types.Message, state: FSMContext):
     quantity = data.get('hotels_num')
     check_in = data.get('check_in')
     check_out = data.get('check_out')
-    days = (check_out - check_in).days
 
     hotels_found = rapid_api.get_city_hotels(city_id, quantity, check_in, check_out, sort_order)
+
+    if len(hotels_found) == 0:
+        await state.finish()
+        await message.answer("По запросу отелей не найдено")
+        return
+    elif hotels_found is None:
+        await state.finish()
+        await message.answer("Что-то пошло не так. Попробуйте еще раз")
+        return
 
     #   Заносим данные о поиске в базу данных
     user_id = message.from_user.id
@@ -168,10 +176,16 @@ async def result(message: types.Message, state: FSMContext):
     add_row(user_id, time, command, matches)
     # -------------------------------------------
 
-    if hotels_found is None:
-        await state.finish()
-        await message.answer("По запросу отелей не найдено")
-        return
+    await HotelRequest.next()
+    await print_result(message, state, hotels_found)
+
+
+async def print_result(message, state, hotels_found):
+    """
+    Brings gathered info about hotels to user
+    """
+    data = await state.get_data()
+    days = (data.get('check_out') - data.get('check_in')).days
 
     for num, hotel in enumerate(hotels_found, start=1):
         if data.get('need_photos'):
