@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, date, timedelta
 from telegram_bot_calendar import DetailedTelegramCalendar, LSTEP
-from aiogram import types, Dispatcher
+from aiogram import types, utils, Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from State.user_state import BestDeal
@@ -202,13 +202,13 @@ async def result(message: types.Message, state: FSMContext):
     hotels_found = rapid_api.get_city_hotels(city_id, quantity, check_in, check_out,
                                          sort_order, min_price, max_price, distance)
 
-    if len(hotels_found) == 0:
-        await state.finish()
-        await message.answer("По запросу отелей не найдено")
-        return
-    elif hotels_found is None:
+    if hotels_found is None:
         await state.finish()
         await message.answer("Что-то пошло не так. Попробуйте еще раз")
+        return
+    elif len(hotels_found) == 0:
+        await state.finish()
+        await message.answer("По запросу отелей не найдено")
         return
 
     #   Заносим данные о поиске в базу данных
@@ -239,7 +239,15 @@ async def print_result(message, state, hotels_found):
             if urls is not None:
                 for url in urls:
                     media.attach_photo(url)
-                await message.answer_media_group(media=media)
+                #  Обработка одного странного события
+                try:
+                    await message.answer_media_group(media=media)
+                except utils.exceptions.BadRequest:
+                    media = types.MediaGroup()
+                    for url in urls:
+                        media.attach_photo(types.InputFile.from_url(url))
+                    await message.answer_media_group(media=media)
+                #  -----------------------------------
             else:
                 await message.answer('Фотографии недоступны')
 
